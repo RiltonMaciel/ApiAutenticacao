@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using ApiAutenticacao.DTOs;
-using ApiAutenticacao.Services;
+using ApiAutenticacao.Services.Interfaces;
 
 namespace ApiAutenticacao.Controllers
 {
@@ -8,9 +8,9 @@ namespace ApiAutenticacao.Controllers
     [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
-        private readonly AuthService _authService;
+        private readonly IAuthService _authService;
 
-        public AuthController(AuthService authService)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
         }
@@ -18,39 +18,22 @@ namespace ApiAutenticacao.Controllers
         [HttpPost("register")]
         public async Task<ActionResult> Register(UserRegisterDto dto)
         {
-            if (await _authService.UserExists(dto.Username))
+            if (await _authService.UserExistsAsync(dto.Username))
                 return BadRequest("Usuário já existe.");
 
-            var user = await _authService.Register(dto.Username, dto.Password);
+            var success = await _authService.RegisterAsync(dto.Username, dto.Password);
+            if (!success) return StatusCode(500, "Erro ao registrar usuário.");
 
-            var response = new UserResponseDto
-            {
-                Id = user.Id,
-                Username = user.Username
-            };
-
-            return Ok(response);
+            return Ok(new { message = "Usuário registrado com sucesso!" });
         }
 
         [HttpPost("login")]
         public async Task<ActionResult> Login(UserLoginDto dto)
         {
-            var user = await _authService.Login(dto.Username, dto.Password);
-            if (user == null) return Unauthorized("Credenciais inválidas.");
+            var token = await _authService.LoginAsync(dto.Username, dto.Password);
+            if (token == null) return Unauthorized("Credenciais inválidas.");
 
-            var response = new UserResponseDto
-            {
-                Id = user.Id,
-                Username = user.Username
-            };
-
-            return Ok(response);
+            return Ok(new { token });
         }
-    }
-
-    internal class UserResponseDto
-    {
-        public int Id { get; set; }
-        public string Username { get; set; }
     }
 }
